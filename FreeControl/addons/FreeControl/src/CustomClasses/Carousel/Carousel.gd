@@ -36,6 +36,10 @@ signal drag_end
 signal slowdown_start
 ## This signal is emited when the slowdown, caused when [member hard_stop] is [code]false[/code], finished naturally.
 signal slowdown_end
+
+## Emitted when the user confirms the currently highlighted/visible item via the accept action.
+## Params: index (int), item (Control)
+signal accepted(index: int, item: Control)
 #endregion
 
 
@@ -49,7 +53,7 @@ enum SNAP_BEHAVIOR {
 ## Changes the direction the carousel will animate towards an item. Does not work if [member allow_loop] is [code]false[/code].
 enum ANiMATE_DIRECTION {
 	AUTO = 0b00, ## Will automatically chose the shortest direction to reach an item.
-	LEFT = 0b01, ## Will always move left to reach an item. 
+	LEFT = 0b01, ## Will always move left to reach an item.
 	RIGHT = 0b10 ## Will always move right to reach an item.
 }
 ## Changes how this node adjusts the scroll when the item spacing changed.
@@ -77,7 +81,7 @@ enum ANIMATION_TYPE {
 			val = posmod(val, _item_infos.size())
 		if val != starting_index:
 			starting_index = val
-			
+
 			if is_node_ready():
 				go_to_index(starting_index, false)
 ## The size of each item in the carousel.
@@ -87,10 +91,10 @@ enum ANIMATION_TYPE {
 			if is_node_ready():
 				_reconfigure_distance(item_seperation, carousel_angle, val)
 				item_size = val
-				
+
 				queue_sort()
 				return
-			
+
 			item_size = val
 ## The space between each item in the carousel.
 @export_range(0, 100, 0.001, "or_less", "or_greater", "suffix:px") var item_seperation : float = 0:
@@ -99,10 +103,10 @@ enum ANIMATION_TYPE {
 			if is_node_ready():
 				_reconfigure_distance(val, carousel_angle, item_size)
 				item_seperation = val
-				
+
 				_adjust_children()
 				return
-			
+
 			item_seperation = val
 ## The orientation the carousel items will be displayed in.
 @export_range(0, 360, 0.001, "or_less", "or_greater", "suffix:deg") var carousel_angle : float = 0.0:
@@ -111,16 +115,46 @@ enum ANIMATION_TYPE {
 			if is_node_ready():
 				_reconfigure_distance(item_seperation, val, item_size)
 				carousel_angle = val
-				
+
 				_adjust_children()
 				return
-			
+
 			carousel_angle = val
-## The distance between any two items on the carousel is dependent on [member item_size],
+		## The distance between any two items on the carousel is dependent on [member item_size],
 ## [member carousel_angle], and [member item_seperation].[br]
 ## This variable determines how the current scroll will be adjusted to accommodate the
 ## change in item distance.
 @export var dynamic_scroll_behavior : ADJUST_SCROLL_BEHAVIOR = ADJUST_SCROLL_BEHAVIOR.INDEX_SNAP
+
+
+@export_group("Input Options")
+@export_subgroup("Keyboard & Gamepad")
+
+## Enables keyboard/gamepad navigation handled by this node.
+@export var keyboard_enabled := true
+
+## When true, holding next/prev will keep moving the carousel at a fixed cadence
+## (implemented in _process; independent of OS key repeat; works mid-animation).
+@export var hold_repeat_enabled := true
+
+## Action to move to the next item (default: ui_right).
+@export var action_next : StringName = &"ui_right"
+
+## Action to move to the previous item (default: ui_left).
+@export var action_prev : StringName = &"ui_left"
+
+## Action to confirm the current item (default: ui_accept).
+## Leave empty (&"") to disable accept handling here.
+@export var action_accept : StringName = &"ui_accept"
+
+## Seconds to wait after the *first* next/prev press before repetition starts.
+## Tip: smaller = more “arcade”, larger = more deliberate.
+@export var hold_repeat_delay := 0.35
+
+## Interval (seconds) between repeated steps while holding.
+## Tip: setting the *same value* as hold_repeat_delay gives a steady cadence.
+@export var hold_repeat_rate  := 0.35
+
 
 @export_group("Loop Options")
 ## Allows looping from the last item to the first and vice versa.
@@ -136,7 +170,7 @@ enum ANIMATION_TYPE {
 	set(val):
 		if val != display_loop:
 			display_loop = val
-			
+
 			if is_node_ready():
 				_adjust_children()
 ## The number of items, surrounding the current item of the current index, that will be visible.
@@ -146,7 +180,7 @@ enum ANIMATION_TYPE {
 		val = maxi(-1, val)
 		if val != display_range:
 			display_range = val
-			
+
 			if is_node_ready():
 				_adjust_children()
 
@@ -156,7 +190,7 @@ enum ANIMATION_TYPE {
 	set(val):
 		if val != snap_behavior:
 			snap_behavior = val
-			
+
 			notify_property_list_changed()
 ## If [member snap_behavior] is [code]SNAP_BEHAVIOR.PAGING[/code], this is the draging threshold needed to page to the next carousel item.
 @export_range(0, 100, 0.001, "or_greater", "hide_slider", "suffix:px") var paging_requirement : float = 200:
@@ -171,15 +205,15 @@ enum ANIMATION_TYPE {
 
 @export_group("Animation Options")
 @export_subgroup("Manual")
-## The duration of the animation any call to [method go_to_index] will cause, if the animation option is requested. 
+## The duration of the animation any call to [method go_to_index] will cause, if the animation option is requested.
 @export_range(0.001, 2.0, 0.001, "or_greater", "suffix:sec") var manual_carousel_duration : float = 0.4:
 	set(val):
 		val = maxf(0.001, val)
 		if val != manual_carousel_duration:
 			manual_carousel_duration = val
-## The [enum Tween.TransitionType] of the animation any call to [method go_to_index] will cause, if the animation option is requested. 
+## The [enum Tween.TransitionType] of the animation any call to [method go_to_index] will cause, if the animation option is requested.
 @export var manual_carousel_transtion_type : Tween.TransitionType
-## The [enum Tween.EaseType] of the animation any call to [method go_to_index] will cause, if the animation option is requested. 
+## The [enum Tween.EaseType] of the animation any call to [method go_to_index] will cause, if the animation option is requested.
 @export var manual_carousel_ease_type : Tween.EaseType
 
 @export_subgroup("Snap")
@@ -200,7 +234,7 @@ enum ANIMATION_TYPE {
 	set(val):
 		if val != can_drag:
 			can_drag = val
-			
+
 			notify_property_list_changed()
 ## If [code]true[/code], the user is allowed to drag outisde the drawer's bounding box.
 ## Otherwise, drag is auto cancled.
@@ -219,7 +253,7 @@ enum ANIMATION_TYPE {
 			enforce_border = val
 			if enforce_border:
 				_adjust_children()
-			
+
 			notify_property_list_changed()
 ## The amount of extra pixels a user can drag past the last and before the first item in the carousel.
 ## [br][br]
@@ -230,7 +264,7 @@ enum ANIMATION_TYPE {
 			border_limit = val
 			if enforce_border:
 				_adjust_children()
-			
+
 			notify_property_list_changed()
 
 @export_subgroup("Slowdown")
@@ -241,7 +275,7 @@ enum ANIMATION_TYPE {
 	set(val):
 		if val != hard_stop:
 			hard_stop = val
-			
+
 			notify_property_list_changed()
 			if is_node_ready():
 				_end_slowdown()
@@ -276,6 +310,25 @@ var _index : int
 var _item_infos : Array[ItemInfo]
 
 var _current_animation := ANIMATION_TYPE.NONE
+
+var _hold_dir := 0                 # -1 = prev, 0 = idle, +1 = next
+var _hold_timer := 0.0             # accumulates time since last step
+var _hold_repeat_started := false  # became true after the initial delay fires
+
+var _missing_action_warned := {}
+
+#Was crashing if changing action on editor
+func _action_available(name: StringName) -> bool:
+	if name == &"":
+		return false
+	if InputMap.has_action(name):
+		return true
+	if not _missing_action_warned.has(name):
+		_missing_action_warned[name] = true
+		push_warning("Input action '%s' is not defined (Project Settings > Input Map)." % [String(name)])
+	return false
+
+
 #endregion
 
 
@@ -303,7 +356,7 @@ func _notification(what : int) -> void:
 		NOTIFICATION_READY:
 			_settup_children()
 			_reconfigure_distance(item_seperation, carousel_angle, item_size)
-			
+
 			go_to_index(starting_index, false)
 		NOTIFICATION_EXIT_TREE:
 			_end_slowdown()
@@ -319,23 +372,110 @@ func _gui_input(event: InputEvent) -> void:
 			if event.pressure == 0:
 				_end_drag()
 				return
-			
+
 			# Prevents drag from handled multiple times in a single frame.
 			if _drag_input_stopper:
 				return
 			_drag_input_stopper = true
 			set_deferred("_drag_input_stopper", false)
-			
+
 			# Handles the drag
 			_handle_drag_angle(event.relative)
 	elif (event is InputEventScreenTouch || event is InputEventMouseButton):
 		if event.pressed:
 			if !drag_outside && !get_viewport_rect().has_point(event.position):
 				return
-			
+
 			_start_drag()
 			return
 		_end_drag()
+
+func _unhandled_input(event: InputEvent) -> void:
+
+	# Don't run keyboard logic in the editor; avoids spam while tweaking Inspector.
+	if Engine.is_editor_hint():
+		return
+
+	if not keyboard_enabled:
+		return
+	if is_dragged():
+		return
+
+	# Respect OS key repeat *only* if you want to. We handle hold in _process,
+	# so we ignore echo here to keep single, crisp presses.
+	if event is InputEventKey and event.echo:
+		return
+
+	# Single-step on just-pressed; sustained hold is handled in _process.
+	if event.is_action_pressed(action_next):
+		accept_event()
+		next(true)
+		return
+
+	if event.is_action_pressed(action_prev):
+		accept_event()
+		prev(true)
+		return
+
+func _process(delta: float) -> void:
+
+	if Engine.is_editor_hint():
+		return
+	if not keyboard_enabled:
+		return
+	if is_dragged():
+		return
+
+	# --- Accept: fire once per press (no repeat) -------------------------------
+	if action_accept != &"" and Input.is_action_just_pressed(action_accept):
+		var idx := get_current_carousel_index(true, true)
+		var children := get_children().filter(func(n): return n is Control)
+		if idx >= 0 and idx < children.size() and has_signal("accepted"):
+			emit_signal("accepted", idx, children[idx])
+		# No 'return' here; allow user to also be holding left/right if desired.
+
+	# --- Hold repeat for next/prev (polling, animation-safe) -------------------
+	if not hold_repeat_enabled:
+		# Only react to single taps; no repetition.
+		if Input.is_action_just_pressed(action_next):
+			go_to_index(get_current_carousel_index(true, true) + 1, true)
+		elif Input.is_action_just_pressed(action_prev):
+			go_to_index(get_current_carousel_index(true, true) - 1, true)
+		return
+
+	var dir := 0
+	if Input.is_action_pressed(action_next):
+		dir += 1
+	if Input.is_action_pressed(action_prev):
+		dir -= 1
+
+	# Nothing held: reset state
+	if dir == 0:
+		_hold_dir = 0
+		_hold_timer = 0.0
+		_hold_repeat_started = false
+		return
+
+	# Direction changed or just started: step immediately and reset timers
+	if dir != _hold_dir:
+		_hold_dir = dir
+		_hold_timer = 0.0
+		_hold_repeat_started = false
+		go_to_index(get_current_carousel_index(true, true) + dir, true)
+		return
+
+	# Same direction held: run delay → rate cadence
+	_hold_timer += delta
+	if not _hold_repeat_started:
+		if _hold_timer >= hold_repeat_delay:
+			_hold_repeat_started = true
+			_hold_timer = 0.0
+			go_to_index(get_current_carousel_index(true, true) + dir, true)
+	else:
+		if _hold_timer >= hold_repeat_rate:
+			_hold_timer -= hold_repeat_rate
+			go_to_index(get_current_carousel_index(true, true) + dir, true)
+
 
 
 func _get_allowed_size_flags_horizontal() -> PackedInt32Array:
@@ -374,7 +514,7 @@ func _get_child_rect(child : Control) -> Rect2:
 	var child_pos : Vector2
 	var child_size : Vector2
 	var min_size := child.get_combined_minimum_size()
-	
+
 	match child.size_flags_horizontal:
 		SIZE_FILL:
 			child_pos.x = (size.x - item_size.x) * 0.5
@@ -395,7 +535,7 @@ func _get_child_rect(child : Control) -> Rect2:
 			child_pos.y = (size.y - min_size.y) * 0.5
 		SIZE_SHRINK_END:
 			child_pos.y = (size.y + item_size.y) * 0.5 - min_size.y
-	
+
 	return Rect2(child_pos, child_size)
 func _get_control_children() -> Array[Control]:
 	var ret : Array[Control]
@@ -415,11 +555,11 @@ func _calculate_item_offset(angle : float, item_s : Vector2) -> Vector2:
 	).min(item_s)
 
 func _scroll_to_index(scroll : float) -> int:
-	if _item_infos.is_empty(): 
+	if _item_infos.is_empty():
 		return -1
 	return roundi(scroll / _distance_cache)
 func _index_to_scroll(index : int) -> float:
-	if _item_infos.is_empty(): 
+	if _item_infos.is_empty():
 		return 0.0
 	return index * _distance_cache
 #endregion
@@ -434,7 +574,7 @@ func _reconfigure_index() -> void:
 func _reconfigure_distance(seperation : float, angle : float, item_s : Vector2) -> void:
 	if _distance_cache != 0:
 		_reconfigure_drag()
-	
+
 	var new_distance := _calculate_item_offset(angle, item_s).length() + seperation
 	if dynamic_scroll_behavior == ADJUST_SCROLL_BEHAVIOR.PROPORTIONAL:
 		_scroll_delta = 0 if _distance_cache == 0 else _scroll_delta * (new_distance / _distance_cache)
@@ -457,47 +597,47 @@ func _sort_children() -> void:
 func _settup_children() -> void:
 	var children : Array[Control] = _get_control_children()
 	var item_count = children.size()
-	
+
 	_item_infos.resize(item_count)
-	
+
 	# Sets up the rect for each item
 	for i : int in range(0, item_count):
 		var item_info := ItemInfo.new()
-		
+
 		item_info.node = children[i]
 		item_info.rect = _get_child_rect(children[i])
-		
+
 		_item_infos[i] = item_info
 func _adjust_children() -> void:
 	if _item_infos.is_empty():
 		return
-	
+
 	# Gathers variables
 	var axis_angle := Vector2.RIGHT.rotated(deg_to_rad(carousel_angle))
-	
+
 	var item_count := _item_infos.size()
-	
+
 	var scroll := get_adjusted_scroll(true)
 	var index_delta := (scroll / _distance_cache)
 	var index_offset := floori(index_delta)
 	var scroll_offset := fmod(scroll, _distance_cache)
-	
+
 	# Calls custom virtual method
 	_on_progress(scroll / _distance_cache)
-	
+
 	if display_loop:
 		var mid_index : int = floori(item_count * 0.5)
 		for idx : int in item_count:
 			var info := _item_infos[idx]
 			var offset_rect := info.rect
-			
+
 			# Gets the local index of the item according to the loop
 			var local_index := posmod(idx - index_offset, item_count)
 			local_index -= item_count * int(local_index > mid_index)
-			
+
 			# Changes item visibility if outside range
 			info.node.visible = display_range == -1 || (absi(local_index) <= display_range)
-			
+
 			offset_rect.position += axis_angle * (_distance_cache * local_index - scroll_offset)
 			fit_child_in_rect(info.node, offset_rect)
 			_on_item_progress(info.node, idx, local_index, scroll, scroll_offset)
@@ -506,10 +646,10 @@ func _adjust_children() -> void:
 		for idx : int in item_count:
 			var info := _item_infos[idx]
 			var offset_rect := info.rect
-			
+
 			# Changes item visibility if outside range
 			info.node.visible = display_range == -1 || (absi(idx - _index) <= display_range)
-			
+
 			offset_rect.position += axis_angle * (_distance_cache * (idx - index_offset) - scroll_offset)
 			fit_child_in_rect(info.node, offset_rect)
 			_on_item_progress(info.node, idx, idx - index_current, scroll, scroll_offset)
@@ -522,7 +662,7 @@ func _kill_animation() -> void:
 		_scroll_tween.kill()
 func _on_animation_finished() -> void:
 	_reconfigure_index()
-	
+
 	animation_end.emit()
 	match _current_animation:
 		ANIMATION_TYPE.MANUAL:
@@ -540,18 +680,18 @@ func _create_animation(idx : int, animation_type : ANIMATION_TYPE, animate_direc
 		idx = posmod(idx, _item_infos.size())
 	else:
 		idx = clampf(idx, 0, _item_infos.size() - 1)
-	
+
 	# Checks if it needs to loop around, and which way it needs to loop if so.
 	if _is_allow_loop() && display_loop:
 		var item_count := _item_infos.size()
-		
+
 		match animate_direction:
 			ANiMATE_DIRECTION.AUTO:
 				# Loops if distance is shorter when looping.
 				if absi(idx_delta - idx) > (item_count * 0.5):
 					var left_distance := posmod(idx_delta - idx, item_count)
 					var right_distance := posmod(idx - idx_delta, item_count)
-					
+
 					if left_distance < right_distance:
 						idx -= item_count
 					else:
@@ -564,7 +704,7 @@ func _create_animation(idx : int, animation_type : ANIMATION_TYPE, animate_direc
 				# Always loop right if needed.
 				if idx_delta > idx:
 					idx = posmod(idx, item_count) + item_count
-	
+
 	if _current_animation != ANIMATION_TYPE.NONE:
 		animation_end.emit()
 		match _current_animation:
@@ -572,10 +712,10 @@ func _create_animation(idx : int, animation_type : ANIMATION_TYPE, animate_direc
 				manual_end.emit()
 			ANIMATION_TYPE.SNAP:
 				snap_end.emit()
-	
+
 	_current_animation = animation_type
 	animation_begin.emit()
-	
+
 	# Creates tween
 	_scroll_tween = create_tween()
 	match animation_type:
@@ -587,7 +727,7 @@ func _create_animation(idx : int, animation_type : ANIMATION_TYPE, animate_direc
 			snap_begin.emit()
 			_scroll_tween.set_ease(snap_carousel_ease_type)
 			_scroll_tween.set_trans(snap_carousel_transtion_type)
-	
+
 	# Starts tween
 	_scroll_tween.tween_method(
 		_animation_method,
@@ -595,7 +735,7 @@ func _create_animation(idx : int, animation_type : ANIMATION_TYPE, animate_direc
 		idx,
 		manual_carousel_duration
 	)
-	
+
 	# Calls animation finish method
 	_scroll_tween.tween_callback(_on_animation_finished)
 func _animation_method(delta : float) -> void:
@@ -608,34 +748,34 @@ func _animation_method(delta : float) -> void:
 func _handle_drag_angle(local_pos : Vector2) -> void:
 	var angle_vec := Vector2.RIGHT.rotated(deg_to_rad(carousel_angle))
 	var projected_scalar := -local_pos.dot(angle_vec) / angle_vec.length_squared()
-	
+
 	_drag_velocity = projected_scalar
-	
+
 	if drag_limit == 0:
 		_drag_delta += projected_scalar
 	else:
 		_drag_delta = clampi(_drag_delta + projected_scalar, -drag_limit, drag_limit)
-	
+
 	if snap_behavior == SNAP_BEHAVIOR.PAGING:
 		if paging_requirement < _drag_delta:
 			_drag_delta = 0
 			_index += 1
-			
+
 			if page_with_animation:
 				_create_animation(_index, ANIMATION_TYPE.SNAP, ANiMATE_DIRECTION.RIGHT)
 				return
-			
+
 			_scroll_delta = _index_to_scroll(_index)
 		elif -paging_requirement > _drag_delta:
 			_drag_delta = 0
 			_index -= 1
-			
+
 			if page_with_animation:
 				_create_animation(_index, ANIMATION_TYPE.SNAP, ANiMATE_DIRECTION.LEFT)
 				return
-			
+
 			_scroll_delta = _index_to_scroll(_index)
-	
+
 	_adjust_children()
 
 func _outside_drag_check() -> void:
@@ -645,13 +785,13 @@ func _outside_drag_check() -> void:
 func _end_drag() -> void:
 	if !_is_dragging:
 		return
-	
+
 	_is_dragging = false
 	_reconfigure_drag()
 	_reconfigure_index()
-	
+
 	drag_end.emit()
-	
+
 	if !hard_stop:
 		_start_slowdown()
 		return
@@ -660,11 +800,11 @@ func _end_drag() -> void:
 func _start_drag() -> void:
 	if _is_dragging:
 		return
-	
+
 	_is_dragging = true
 	_kill_animation()
 	_end_slowdown()
-	
+
 	drag_begin.emit()
 #endregion
 
@@ -673,26 +813,26 @@ func _start_drag() -> void:
 func _end_slowdown() -> void:
 	if !get_tree().process_frame.is_connected(_handle_slowdown):
 		return
-	
+
 	get_tree().process_frame.disconnect(_handle_slowdown)
 	_reconfigure_index()
 	_drag_velocity = 0
 	slowdown_end.emit()
-	
+
 	if snap_behavior == SNAP_BEHAVIOR.SNAP:
 		_create_animation(_index, ANIMATION_TYPE.SNAP)
 func _start_slowdown() -> void:
 	if get_tree().process_frame.is_connected(_handle_slowdown):
 		return
 	get_tree().process_frame.connect(_handle_slowdown)
-	
+
 	slowdown_start.emit()
 func _handle_slowdown() -> void:
 	if absf(_drag_velocity) < slowdown_cutoff:
 		_drag_velocity = 0
 		_end_slowdown()
 		return
-	
+
 	if _drag_velocity > 0:
 		_drag_velocity = maxf(0., _drag_velocity - slowdown_friction)
 	else:
@@ -710,7 +850,7 @@ func go_to_index(idx : int, animation : bool = true, animation_direction : ANiMA
 		return
 	var item_count := _item_infos.size()
 	_index = posmod(idx, item_count) if _is_allow_loop() else clampi(idx, 0, item_count - 1)
-	
+
 	if animation:
 		_create_animation(_index, ANIMATION_TYPE.MANUAL, animation_direction)
 		return
@@ -781,11 +921,11 @@ func get_item_count() -> float:
 func get_adjusted_scroll(with_drag : bool = false) -> float:
 	if _item_infos.is_empty():
 		return 0
-	
+
 	var ret := _scroll_delta
 	if with_drag && snap_behavior != SNAP_BEHAVIOR.PAGING:
 		ret += _drag_delta
-	
+
 	if _is_allow_loop():
 		ret = posmod(ret, _distance_cache * _item_infos.size())
 	elif enforce_border:
@@ -802,7 +942,7 @@ func get_scroll_ratio(with_drag : bool = false) -> float:
 func get_scroll(with_drag : bool = false) -> float:
 	if _item_infos.is_empty():
 		return -1
-	
+
 	if with_drag:
 		return _scroll_delta + _drag_delta
 	return _scroll_delta
